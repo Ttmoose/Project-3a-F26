@@ -1,7 +1,6 @@
 package edu.luc.cs.laufer.cs371.expressions
 
 import util.Try
-
 import Expr.*
 
 object behaviors:
@@ -9,37 +8,141 @@ object behaviors:
   private def evaluateR(e: Expr): Int = e match
     case Constant(c) => c
     case UMinus(r)   => -evaluateR(r)
-    case Plus(l, r)  => evaluateR(l) + evaluateR(r) // Seq(l, r).map(evaluateR).sum
-    case Minus(l, r) => evaluateR(l) - evaluateR(r) // Seq(l, r).map(evaluateR).foldLeft(0)(_ - _)
-    case Times(l, r) => evaluateR(l) * evaluateR(r) // Seq(l, r).map(evaluateR).product
+    case Plus(l, r)  => evaluateR(l) + evaluateR(r)
+    case Minus(l, r) => evaluateR(l) - evaluateR(r)
+    case Times(l, r) => evaluateR(l) * evaluateR(r)
     case Div(l, r)   => evaluateR(l) / evaluateR(r)
     case Mod(l, r)   => evaluateR(l) % evaluateR(r)
+    case other       => throw UnsupportedOperationException(s"Cannot evaluate $other in project 3a")
 
   def evaluate(e: Expr): Try[Int] = Try(evaluateR(e))
 
   def size(e: Expr): Int = e match
-    case Constant(c) => 1
-    case UMinus(r)   => 1 + size(r)
-    case Plus(l, r)  => 1 + size(l) + size(r) // 1 + Seq(l, r).map(size).sum
-    case Minus(l, r) => 1 + size(l) + size(r)
-    case Times(l, r) => 1 + size(l) + size(r)
-    case Div(l, r)   => 1 + size(l) + size(r)
-    case Mod(l, r)   => 1 + size(l) + size(r)
+    case Constant(_)       => 1
+    case Variable(_)       => 1
+    case UMinus(r)         => 1 + size(r)
+    case Plus(l, r)        => 1 + size(l) + size(r)
+    case Minus(l, r)       => 1 + size(l) + size(r)
+    case Times(l, r)       => 1 + size(l) + size(r)
+    case Div(l, r)         => 1 + size(l) + size(r)
+    case Mod(l, r)         => 1 + size(l) + size(r)
+    case Block(statements) => 1 + statements.map(size).sum
+    case Cond(g, t, el)    => 1 + size(g) + size(t) + size(el)
+    case Loop(g, b)        => 1 + size(g) + size(b)
+    case Assign(l, r)      => 1 + size(l) + size(r)
 
   def height(e: Expr): Int = e match
-    case Constant(c) => 1
-    case UMinus(r)   => 1 + height(r)
-    case Plus(l, r)  => 1 + math.max(height(l), height(r))  // 1 + Seq(l, r).map(height).max
-    case Minus(l, r) => 1 + math.max(height(l), height(r))
-    case Times(l, r) => 1 + math.max(height(l), height(r))
-    case Div(l, r)   => 1 + math.max(height(l), height(r))
-    case Mod(l, r)   => 1 + math.max(height(l), height(r))
+    case Constant(_)       => 1
+    case Variable(_)       => 1
+    case UMinus(r)         => 1 + height(r)
+    case Plus(l, r)        => 1 + math.max(height(l), height(r))
+    case Minus(l, r)       => 1 + math.max(height(l), height(r))
+    case Times(l, r)       => 1 + math.max(height(l), height(r))
+    case Div(l, r)         => 1 + math.max(height(l), height(r))
+    case Mod(l, r)         => 1 + math.max(height(l), height(r))
+    case Block(statements) => 1 + (if statements.isEmpty then 0 else statements.map(height).max)
+    case Cond(g, t, el)    => 1 + math.max(height(g), math.max(height(t), height(el)))
+    case Loop(g, b)        => 1 + math.max(height(g), height(b))
+    case Assign(l, r)      => 1 + math.max(height(l), height(r))
 
   import org.json4s.JsonAST.JValue
   import org.json4s.JsonDSL.*
+
   def toJson(e: Expr): JValue = e match
-    case Constant(c) => c
-    case UMinus(r)   => e.productPrefix -> toJson(r)
-    case p           => p.productPrefix -> (0 until p.productArity).map(i => toJson(p.productElement(i).asInstanceOf[Expr]))
+    case Constant(c)       => c
+    case Variable(name)    => e.productPrefix -> name
+    case UMinus(r)         => e.productPrefix -> toJson(r)
+    case Plus(l, r)        => e.productPrefix -> List(toJson(l), toJson(r))
+    case Minus(l, r)       => e.productPrefix -> List(toJson(l), toJson(r))
+    case Times(l, r)       => e.productPrefix -> List(toJson(l), toJson(r))
+    case Div(l, r)         => e.productPrefix -> List(toJson(l), toJson(r))
+    case Mod(l, r)         => e.productPrefix -> List(toJson(l), toJson(r))
+    case Block(statements) => e.productPrefix -> statements.map(toJson)
+    case Cond(g, t, el)    => e.productPrefix -> List(toJson(g), toJson(t), toJson(el))
+    case Loop(g, b)        => e.productPrefix -> List(toJson(g), toJson(b))
+    case Assign(l, r)      => e.productPrefix -> List(toJson(l), toJson(r))
+
+  def toInfix(e: Expr): String = e match
+    case Constant(c)    => c.toString
+    case Variable(name) => name
+    case UMinus(r)      => s"-${toInfix(r)}"
+    case Plus(l, r)     => s"(${toInfix(l)} + ${toInfix(r)})"
+    case Minus(l, r)    => s"(${toInfix(l)} - ${toInfix(r)})"
+    case Times(l, r)    => s"(${toInfix(l)} * ${toInfix(r)})"
+    case Div(l, r)      => s"(${toInfix(l)} / ${toInfix(r)})"
+    case Mod(l, r)      => s"(${toInfix(l)} % ${toInfix(r)})"
+    case other          => toUnparsed(other)
+
+  private def indent(depth: Int): String = "  " * depth
+
+  def toUnparsed(e: Expr): String = unparse(e, 0)
+
+  def unparse(e: Expr, depth: Int = 0): String = e match
+    case Block(statements) =>
+      val header = s"${indent(depth)}{\n"
+      val body = statements.map(s => unparse(s, depth + 1)).mkString("\n")
+      val bodyWithNl = if body.isEmpty then "" else body + "\n"
+      val footer = s"${indent(depth)}}"
+      s"$header$bodyWithNl$footer"
+
+    case Cond(guard, thenBranch, elseBranch) =>
+      val header = s"${indent(depth)}if (${toInfix(guard)}) {\n"
+      val thenBody = thenBranch match
+        case Block(ss) => ss.map(s => unparse(s, depth + 1)).mkString("\n")
+        case other     => unparse(other, depth + 1)
+      val thenWithNl = if thenBody.isEmpty then "" else thenBody + "\n"
+      elseBranch match
+        case c @ Cond(_, _, _) =>
+          val elseCondStr = unparseCond(c, depth)
+          s"$header$thenWithNl$elseCondStr"
+        case Block(ss) =>
+          val mid = s"${indent(depth)}} else {\n"
+          val elseBody = ss.map(s => unparse(s, depth + 1)).mkString("\n")
+          val elseWithNl = if elseBody.isEmpty then "" else elseBody + "\n"
+          val footer = s"${indent(depth)}}"
+          s"$header$thenWithNl$mid$elseWithNl$footer"
+        case other =>
+          val mid = s"${indent(depth)}} else {\n"
+          val elseBody = unparse(other, depth + 1)
+          val elseWithNl = if elseBody.isEmpty then "" else elseBody + "\n"
+          val footer = s"${indent(depth)}}"
+          s"$header$thenWithNl$mid$elseWithNl$footer"
+
+    case Loop(guard, body) =>
+      val header = s"${indent(depth)}while (${toInfix(guard)}) {\n"
+      val bodyStr = body match
+        case Block(ss) => ss.map(s => unparse(s, depth + 1)).mkString("\n")
+        case other     => unparse(other, depth + 1)
+      val bodyWithNl = if bodyStr.isEmpty then "" else bodyStr + "\n"
+      val footer = s"${indent(depth)}}"
+      s"$header$bodyWithNl$footer"
+
+    case Assign(left, right) =>
+      s"${indent(depth)}${toInfix(left)} = ${toInfix(right)};"
+
+    case expr =>
+      s"${indent(depth)}${toInfix(expr)};"
+
+  private def unparseCond(cond: Cond, depth: Int): String =
+    val header = s"${indent(depth)}} else if (${toInfix(cond.guard)}) {\n"
+    val thenBody = cond.thenBranch match
+      case Block(ss) => ss.map(s => unparse(s, depth + 1)).mkString("\n")
+      case other     => unparse(other, depth + 1)
+    val thenWithNl = if thenBody.isEmpty then "" else thenBody + "\n"
+    cond.elseBranch match
+      case c @ Cond(_, _, _) =>
+        s"$header$thenWithNl${unparseCond(c, depth)}"
+      case Block(ss) =>
+        val mid = s"${indent(depth)}} else {\n"
+        val elseBody = ss.map(s => unparse(s, depth + 1)).mkString("\n")
+        val elseWithNl = if elseBody.isEmpty then "" else elseBody + "\n"
+        val footer = s"${indent(depth)}}"
+        s"$header$thenWithNl$mid$elseWithNl$footer"
+      case other =>
+        val mid = s"${indent(depth)}} else {\n"
+        val elseBody = unparse(other, depth + 1)
+        val elseWithNl = if elseBody.isEmpty then "" else elseBody + "\n"
+        val footer = s"${indent(depth)}}"
+        s"$header$thenWithNl$mid$elseWithNl$footer"
 
 end behaviors

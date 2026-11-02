@@ -4,23 +4,44 @@ import Expr.*
 
 object ASTBuilder extends ExprParser[Expr]:
 
-  override def onExpr: Expr ~ Option[String ~ Expr] => Expr =
-    case l ~ None => l
-    case l ~ Some("+" ~ r) => Plus(l, r)
-    case l ~ Some("-" ~ r) => Minus(l, r)
+  override def onExpr: Expr ~ List[String ~ Expr] => Expr =
+    case first ~ rest =>
+      rest.foldLeft(first):
+        case (l, "+" ~ r) => Plus(l, r)
+        case (l, "-" ~ r) => Minus(l, r)
+        case (l, _)       => l
 
-  override def onTerm: Expr ~ Option[String ~ Expr] => Expr =
-    case l ~ None => l
-    case l ~ Some("*" ~ r) => Times(l, r)
-    case l ~ Some("/" ~ r) => Div(l, r)
-    case l ~ Some("%" ~ r) => Mod(l, r)
+  override def onTerm: Expr ~ List[String ~ Expr] => Expr =
+    case first ~ rest =>
+      rest.foldLeft(first):
+        case (l, "*" ~ r) => Times(l, r)
+        case (l, "/" ~ r) => Div(l, r)
+        case (l, "%" ~ r) => Mod(l, r)
+        case (l, _)       => l
 
-  override def onNumber = Constant.apply compose (_.toInt)
+  override def onIdent: String => Expr = Variable.apply
 
-  override def onPlusFactor = identity
+  override def onNumber: String => Expr = Constant.apply compose (_.toInt)
 
-  override def onMinusFactor = UMinus.apply
+  override def onPlusFactor: Expr => Expr = identity
 
-  override def onParenExpr = identity
+  override def onMinusFactor: Expr => Expr = UMinus.apply
+
+  override def onParenExpr: Expr => Expr = identity
+
+  override def onAssignment: String ~ Expr => Expr =
+    case name ~ e => Assign(Variable(name), e)
+
+  override def onConditional: (Expr ~ Expr) ~ Option[Expr] => Expr =
+    case guard ~ thenB ~ elseB => Cond(guard, thenB, elseB.getOrElse(Block(Nil)))
+
+  override def onLoop: Expr ~ Expr => Expr =
+    case guard ~ body => Loop(guard, body)
+
+  override def onBlock: List[Expr] => Expr = ss => Block(ss)
+
+  override def onExprStatement: Expr => Expr = identity
+
+  override def onRepl: List[Expr] => Expr = ss => Block(ss)
 
 end ASTBuilder
