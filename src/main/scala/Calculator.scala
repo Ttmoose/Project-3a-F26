@@ -35,6 +35,9 @@ object Calculator:
         val prompt = if buffer.isEmpty then "minijs> " else "  ...> "
         val line = reader.readLine(prompt)
         if line == null then
+          if buffer.nonEmpty then
+            process(buffer.mkString("\n"))
+            buffer.clear()
           running = false
         else if line.trim.isEmpty then
           if buffer.nonEmpty then
