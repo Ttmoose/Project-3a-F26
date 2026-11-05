@@ -1,0 +1,66 @@
+========================================================================
+COMP 371 Project 3a: MiniJS Front End - Evaluation Report
+========================================================================
+Team: Team_8
+Tag: p3a (commit bb4c042)
+
+------------------------------------------------------------------------
+RUBRIC BREAKDOWN & DETAILED EVALUATION
+------------------------------------------------------------------------
+
+1. Grammar and Resulting AST: 1.5 / 1.5
+   - Expressions and Precedence: Implemented in `src/main/scala/ExprParser.scala`. Operators (*, /, %) take precedence over (+, -) and group left-to-right using `foldLeft`.
+   - Numbers and Unary Minus: `number` rule strictly matches unsigned digits `\d+`, correctly forcing leading negative signs to be parsed as `UMinus`.
+   - Identifiers: Custom `ident` regex `(?!(?:if|else|while)\b)[a-zA-Z_][a-zA-Z0-9_]*` cleanly rejects keywords while allowing identifiers that share prefixes.
+   - Case Classes & AST: Unified `Expr` enum in `src/main/scala/ast.scala` supporting arithmetic operations, `Assign`, `Block`, `Cond`, and `Loop`.
+
+2. Parser: 1.5 / 1.5
+   - Required Grammar Productions: Implemented in `ExprParser.scala` (`statement`, `assignment`, `conditional`, `loop`, `block`, `repl`).
+   - Top-Level repl Production: `def repl: Parser[Result] = rep(statement) ^^ onRepl` correctly handles zero or more statements.
+   - Valid and Invalid Syntax: Comprehensive syntax verification. Successfully rejects malformed syntax, unclosed braces/parentheses, invalid assignment targets, consecutive operators, and keyword identifiers.
+
+3. toJSON: 1.0 / 1.0
+   - Implemented in `src/main/scala/behaviors.scala` (`toJson(e: Expr)`).
+   - Generates nested JSON structures for all AST nodes (`Constant`, `Variable`, `UMinus`, binary ops, `Assign`, `Block`, `Cond`, `Loop`).
+
+4. Unparser / Pretty Printer: 0.75 / 1.0
+   - Implemented in `src/main/scala/behaviors.scala` (`unparse(e: Expr, depth: Int)`).
+   - Infix expressions with parenthesization.
+   - Two-space indentation per depth level.
+   - Supports formatting of `else if` chains (`unparseCond`).
+   - Defects:
+     1. Top-level programs (parsed into `Block`) are unparsed wrapped in enclosing braces (`{\n  ...\n}`).
+     2. Conditionals without an `else` branch unparse with an extraneous `else {\n  }` block because missing else is represented as `Block(Nil)` and unconditionally printed.
+
+5. Testing: 1.0 / 1.0
+   - Test Results: All 24 tests passed across 3 test suites (`sbt test` exit code 0).
+   - Solid coverage in `TestMiniJS.scala`: assignments, expressions, conditionals, else-if chains, loops, blocks, instructor complex example, invalid syntax rejection (12 distinct rejection cases), round trips, and REPL input handling.
+
+6. REPL: 1.0 / 1.0
+   - Implemented in `src/main/scala/Calculator.scala`.
+   - Interactive loop supporting JLine3 (`runWithJLine`) and standard input fallback (`runWithStdin`).
+   - Displays primary prompt `minijs> ` and continuation prompt `  ...> `.
+   - Echoes input, prints AST, JSON, and unparsed code, handling errors without termination.
+
+------------------------------------------------------------------------
+EXTRA CREDIT
+------------------------------------------------------------------------
+- JLine3 Integration: AWARDED (+0.5)
+  Evidence: `build.sbt` contains `"org.jline" % "jline" % "4.4.8"`. `Calculator.scala` uses `TerminalBuilder` and `LineReaderBuilder` with EOF and Ctrl-C handling.
+- Multi-line Input: AWARDED (+0.5)
+  Evidence: Successive lines are buffered until a blank line is submitted.
+- Successive else-if Branches: AWARDED (+0.5)
+  Evidence: `ExprParser.scala:49` supports `opt("else" ~> (conditional | block))`. `behaviors.scala` implements `unparseCond`. Tested in `TestMiniJS.scala`.
+- F-algebraic AST and Droste Unparser: Not implemented.
+
+Extra Credit Total: +1.5
+
+------------------------------------------------------------------------
+FINAL GRADE
+------------------------------------------------------------------------
+Base Score: 6.75 / 7.0
+Extra Credit: +1.5
+Final Score: 8.25 / 7.0
+
+Feedback: Excellent work on all three extra credit features (JLine3, multiline input, and successive else-if branches). The parser design and test suite are very solid. For the unparser, avoid wrapping the top-level program in outer curly braces and omit the `else {}` block when no else branch is present.
+========================================================================
