@@ -1,0 +1,1 @@
+3B- Used AI to walk through concepts like the Variable and the Conditional and how to implment it. Also used it to walk through the requirments of the project and how the mutable memory map might work and how to implment it. 

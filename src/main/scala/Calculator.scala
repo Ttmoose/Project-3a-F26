@@ -8,10 +8,16 @@ import behaviors.*
 
 object Calculator:
 
-  def process(input: String): Unit =
+  /** Memory persists across successive entries in this REPL session. */
+  val memory: Store = emptyStore()
+
+  private def showMemory(store: Store): String =
+    store.iterator.map((name, value) => s"$name -> $value").mkString("Map(", ", ", ")")
+
+  def process(input: String, store: Store): Unit =
     println("You entered: " + input)
     val result = ASTBuilder.parseAll(ASTBuilder.repl, input)
-    if result.isEmpty then
+    if !result.successful then
       println("These statements could not be parsed: " + result)
     else
       val ast = result.get
@@ -21,6 +27,10 @@ object Calculator:
       println(pretty(render(toJson(ast))))
       println("The unparsed statements are:")
       println(toUnparsed(ast))
+      println("It evaluates to " + evaluate(store)(ast))
+    println("Memory: " + showMemory(store))
+
+  def process(input: String): Unit = process(input, memory)
 
   def processExpr(input: String): Unit = process(input)
 
@@ -72,6 +82,7 @@ object Calculator:
       process(buffer.mkString("\n"))
 
   def main(args: Array[String]): Unit =
+    println("Memory: " + showMemory(memory))
     if args.length > 0 then
       process(args.mkString(" "))
     else

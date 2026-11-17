@@ -1,21 +1,67 @@
 package edu.luc.cs.laufer.cs371.expressions
 
+import scala.collection.mutable
 import util.Try
 import Expr.*
 
+/** A value produced at run time by a MiniJS program. */
+enum Value derives CanEqual:
+  case Num(value: Int)
+
 object behaviors:
 
-  private def evaluateR(e: Expr): Int = e match
-    case Constant(c) => c
-    case UMinus(r)   => -evaluateR(r)
-    case Plus(l, r)  => evaluateR(l) + evaluateR(r)
-    case Minus(l, r) => evaluateR(l) - evaluateR(r)
-    case Times(l, r) => evaluateR(l) * evaluateR(r)
-    case Div(l, r)   => evaluateR(l) / evaluateR(r)
-    case Mod(l, r)   => evaluateR(l) % evaluateR(r)
-    case other       => throw UnsupportedOperationException(s"Cannot evaluate $other in project 3a")
+  import Value.*
 
-  def evaluate(e: Expr): Try[Int] = Try(evaluateR(e))
+  /** Mutable memory shared by all statements in one interpreter session. */
+  type Store = mutable.Map[String, Value]
+
+  /** The value of statements that do not otherwise produce a useful result. */
+  val Void: Value = Num(0)
+
+  def emptyStore(): Store = mutable.LinkedHashMap.empty[String, Value]
+
+  private def numeric(store: Store)(e: Expr): Int =
+    interpret(store)(e) match
+      case Num(value) => value
+
+  /**
+   * Interprets an expression in the supplied store.
+   *
+   * Runtime errors deliberately propagate from here. `evaluate` catches them
+   * once, at the top level, so evaluation stops at the first failure.
+   */
+  def interpret(store: Store)(e: Expr): Value = e match
+    case Constant(c) => Num(c)
+    case Variable(name) =>
+      store.getOrElse(name, throw NoSuchFieldException(name))
+    case UMinus(r)   => Num(-numeric(store)(r))
+    case Plus(l, r)  => Num(numeric(store)(l) + numeric(store)(r))
+    case Minus(l, r) => Num(numeric(store)(l) - numeric(store)(r))
+    case Times(l, r) => Num(numeric(store)(l) * numeric(store)(r))
+    case Div(l, r)   => Num(numeric(store)(l) / numeric(store)(r))
+    case Mod(l, r)   => Num(numeric(store)(l) % numeric(store)(r))
+    case Assign(Variable(name), right) =>
+      val value = interpret(store)(right)
+      store.update(name, value)
+      Void
+    case Assign(left, _) =>
+      throw IllegalArgumentException(s"Cannot assign to $left")
+    case Cond(guard, thenBranch, elseBranch) =>
+      if numeric(store)(guard) != 0 then interpret(store)(thenBranch)
+      else interpret(store)(elseBranch)
+    case Loop(guard, body) =>
+      while numeric(store)(guard) != 0 do
+        interpret(store)(body): Unit
+      Void
+    case Block(statements) =>
+      statements.foldLeft(Void):
+        case (_, statement) => interpret(store)(statement)
+
+  /** Evaluates a complete program and converts the first runtime error to a failure. */
+  def evaluate(store: Store)(e: Expr): Try[Value] = Try(interpret(store)(e))
+
+  /** Evaluates a side-effect-free program using a fresh, initially empty store. */
+  def evaluate(e: Expr): Try[Value] = evaluate(emptyStore())(e)
 
   def size(e: Expr): Int = e match
     case Constant(_)       => 1

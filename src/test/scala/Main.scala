@@ -1,9 +1,9 @@
 package edu.luc.cs.laufer.cs371.expressions
 
-import util.{ Success, Failure }
 import org.scalatest.funsuite.AnyFunSuite
 
 import behaviors.*
+import Value.*
 import TestFixtures.*
 
 object Main:
@@ -21,10 +21,10 @@ object Main:
 end Main
 
 class Test extends AnyFunSuite:
-  test("evaluate(p)") { assert(evaluate(complex1).get == -1) }
+  test("evaluate(p)") { assert(evaluate(complex1).get == Num(-1)) }
   test("size(p)") { assert(size(complex1) == 9) }
   test("height(p)") { assert(height(complex1) == 4) }
-  test("evaluate(q)") { assert(evaluate(complex2).get == 0) }
+  test("evaluate(q)") { assert(evaluate(complex2).get == Num(0)) }
   test("size(q)") { assert(size(complex2) == 10) }
   test("height(q)") { assert(height(complex2) == 5) }
   test("evaluate(bad)") { assert(evaluate(bad).isFailure) }

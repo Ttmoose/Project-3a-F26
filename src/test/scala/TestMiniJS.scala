@@ -2,6 +2,7 @@ package edu.luc.cs.laufer.cs371.expressions
 
 import org.scalatest.funsuite.AnyFunSuite
 import Expr.*
+import Value.*
 import behaviors.*
 
 class TestMiniJS extends AnyFunSuite:
@@ -272,9 +273,11 @@ class TestMiniJS extends AnyFunSuite:
     assert(height(emptyBlock) == 1)
   }
 
-  test("evaluate throws UnsupportedOperationException for statements") {
+  test("evaluate assignment in a mutable store") {
+    val store = emptyStore()
     val s = Assign(Variable("x"), Constant(5))
-    assert(evaluate(s).isFailure)
+    assert(evaluate(store)(s).get == Num(0))
+    assert(store("x") == Num(5))
   }
 
   test("RawBuilder parses statements and expressions") {
